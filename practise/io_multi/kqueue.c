@@ -50,7 +50,7 @@ int main(int argc, char const *argv[]) {
     chlist = (struct kevent *) malloc(sizeof(struct kevent));
     evlist = (struct kevent *) malloc(sizeof(struct kevent) * MAXEVENT);
 
-    EV_SET(chlist, listenfd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);    //注册事件
+    EV_SET(chlist, listenfd, EVFILT_READ, EV_ADD, 0, 0, 0);    //注册事件
 
     int nev, ready_fd;
     int clientfd;
@@ -58,6 +58,7 @@ int main(int argc, char const *argv[]) {
     socklen_t client_addr_len = sizeof(struct sockaddr);
     char buffer[1024];
     int nread;
+    int len;
 
     while (1) {
         nev = kevent(kq, chlist, 1, evlist, MAXEVENT, NULL);    //无限阻塞
@@ -73,7 +74,8 @@ int main(int argc, char const *argv[]) {
 
         for (int i = 0; i < nev; i++) {
             ready_fd = evlist[i].ident;
-            printf("fd:%d\n", ready_fd);
+            len = evlist[i].data;
+            printf("fd：%d，len：%d\n", ready_fd,len);
 
             if (ready_fd == listenfd) {
                 //有新连接
@@ -85,19 +87,20 @@ int main(int argc, char const *argv[]) {
                     printf("新连接：FD:%d,IP:%s,PORT:%d\n", clientfd, inet_ntoa(client_addr.sin_addr),
                            ntohs(client_addr.sin_port));
                     //加入监听
-                    EV_SET(chlist, clientfd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, 0);
+                    EV_SET(chlist, clientfd, EVFILT_READ, EV_ADD, 0, 0, 0);
                 } else {
                     printf("不好了\n");
                 }
             } else {
                 //有连接发数据
                 nread = read(ready_fd, buffer, 1024);
+                printf("读取到的字节数：%d",nread);
                 if (nread < 0) {
                     perror("读数据出错：");
                     return -1;
                 } else if (nread == 0) {
                     printf("对端关闭\n");
-                    EV_SET(chlist, ready_fd, EVFILT_READ, EV_DELETE | EV_DISABLE, 0, 0, 0); //移出监听
+                    EV_SET(chlist, ready_fd, EVFILT_READ, EV_DELETE, 0, 0, 0); //移出监听
                 } else {
                     write(ready_fd, buffer, nread);
                 }
